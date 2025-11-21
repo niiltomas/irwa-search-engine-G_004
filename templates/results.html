@@ -11,17 +11,39 @@
     {% endif %}
     <hr>
     {% for item in results_list %}
-        <div class="pb-3">
-            <div class="doc-title">
-                <a href="{{ item.url }}">{{ item.title }}...
-                </a>
-            </div>
-            <div class="doc-desc">
-                {{ item.doc_date }} — {{ item.description }}
-            </div>
-
+    <div class="pb-3">
+        <div class="doc-title">
+            <a href="{{ url_for('doc_details', pid=item.pid) }}">
+                {{ item.title }}
+            </a>
         </div>
 
-    {% endfor %}
+        <div class="doc-desc">
+            {{ item.description }}
+        </div>
+
+        <div class="doc-meta">
+            <strong>Availability:</strong>
+            {% if item.out_of_stock %}
+                <span class="text-danger">Out of stock</span>
+            {% else %}
+                <span class="text-success">In stock</span>
+            {% endif %}
+            <br/>
+            <strong>Price:</strong> {{ item.selling_price if item.selling_price else 'N/A' }}
+            &nbsp;|&nbsp;
+            <strong>Discount:</strong> {{ item.discount if item.discount else 'N/A' }}
+            &nbsp;|&nbsp;
+            <strong>Rating:</strong> {{ item.average_rating if item.average_rating else 'N/A' }}
+        </div>
+
+        <!-- Only original site link -->
+        <div class="doc-links mt-1">
+            <a href="{{ item.url }}" target="_blank">Original site</a>
+        </div>
+    </div>
+    <hr/>
+{% endfor %}
+
 {% endblock %}
 

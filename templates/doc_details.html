@@ -1,18 +1,50 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Document Detail - IRWA Search Engine</title>
-</head>
-<body>
-<div><a href="/" >Home</a></div>
-<div><a href="/stats" >Stats</a></div>
-<div><a href="/dashboard" >Dashboard</a></div>
-<h1>Document Detail Page</h1>
-<p>This is a placeholder for document details.</p>
-<p>Here you can display more information about the document.</p>
-<p>For example, you might show the full text of the document, metadata, or other relevant details.</p>
-<p>You can also include links to related documents or resources.</p>
-<p>Feel free to customize this page to fit the needs of your application.</p>
-</body>
-</html>
+{% extends "base.html" %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <a href="/">Home</a> | <a href="/stats">Stats</a> | <a href="/dashboard">Dashboard</a>
+
+    {% if doc %}
+        <h1>{{ doc.title }}</h1>
+        <div class="mb-2 text-muted">PID: {{ doc.pid }}</div>
+
+        <div class="row">
+            <div class="col-md-4">
+                {% if doc.images %}
+                    {% for img in doc.images %}
+                        <img src="{{ img }}" alt="{{ doc.title }}" class="img-fluid mb-2" />
+                    {% endfor %}
+                {% else %}
+                    <div class="text-muted">No images available</div>
+                {% endif %}
+            </div>
+            <div class="col-md-8">
+                <p><strong>Brand:</strong> {{ doc.brand if doc.brand else 'N/A' }}</p>
+                <p><strong>Category:</strong> {{ doc.category if doc.category else 'N/A' }}</p>
+                <p><strong>Sub-category:</strong> {{ doc.sub_category if doc.sub_category else 'N/A' }}</p>
+                <p><strong>Price:</strong> {{ doc.selling_price if doc.selling_price else 'N/A' }}</p>
+                <p><strong>Discount:</strong> {{ doc.discount if doc.discount else 'N/A' }}</p>
+                <p><strong>Average rating:</strong> {{ doc.average_rating if doc.average_rating else 'N/A' }}</p>
+                <p><strong>Description:</strong> {{ doc.description }}</p>
+
+                {% if doc.product_details %}
+                    <h5>Product details</h5>
+                    <ul>
+                        {% for k, v in doc.product_details.items() %}
+                            <li><strong>{{ k }}:</strong> {{ v }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+
+                {% if doc.url %}
+                    <p><a href="{{ doc.url }}" target="_blank">Open original product page</a></p>
+                {% endif %}
+            </div>
+        </div>
+    {% else %}
+        <h3>Document not found</h3>
+        <p>The requested product could not be found in the corpus.</p>
+    {% endif %}
+</div>
+{% endblock %}

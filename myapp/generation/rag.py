@@ -1,70 +1,67 @@
 import os
 from groq import Groq
 from dotenv import load_dotenv
-load_dotenv()  # take environment variables from .env
+
+load_dotenv()
 
 
 class RAGGenerator:
+    """Clean and unified RAG generator: Top-3 recommendation with metadata."""
 
-    PROMPT_TEMPLATE = """
-        You are an expert product advisor helping users choose the best option from retrieved e-commerce products.
+    DEFAULT_ANSWER = (
+        "RAG is not available. Check your credentials (.env file) or account limits."
+    )
 
-        ## Instructions:
-        1. Identify the single best product that matches the user's request.
-        2. Present the recommendation clearly in this format:
-        - Best Product: [Product PID] [Product Name]
-        - Why: [Explain in plain language why this product is the best fit, referring to specific attributes like price, features, quality, or fit to user’s needs.]
-        3. If there is another product that could also work, mention it briefly as an alternative.
-        4. If no product is a good fit, return ONLY this exact phrase:
-        "There are no good products that fit the request based on the retrieved results."
+    def __init__(self, model_env_var: str = "GROQ_MODEL"):
+        self.model_env_var = model_env_var
+        self.model_name = os.environ.get(model_env_var, "llama-3.1-8b-instant")
+        self.client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-        ## Retrieved Products:
-        {retrieved_results}
+    def _format_documents(self, retrieved_results, top_N):
+        """Format documents into a metadata-rich block for the prompt."""
+        lines = []
 
-        ## User Request:
-        {user_query}
+        for item in retrieved_results[:top_N]:
+            if isinstance(item, (list, tuple)):
+                doc, bm25_score = item
+            else:
+                doc = item
+                bm25_score = getattr(doc, "score", None)
 
-        ## Output Format:
-        - Best Product: ...
-        - Why: ...
-        - Alternative (optional): ...
-    """
+            lines.append(
+                f"PID: {getattr(doc, 'pid', '')} | Title: {getattr(doc, 'title', '')} | "
+                f"Price: {getattr(doc, 'selling_price', 'N/A')} | Discount: {getattr(doc, 'discount', 'N/A')} | "
+                f"Rating: {getattr(doc, 'average_rating', 'N/A')} | InStock: {not bool(getattr(doc, 'out_of_stock', False))} | "
+                f"BM25: {bm25_score if bm25_score is not None else 'N/A'} | URL: {getattr(doc, 'url', '')}"
+            )
 
-    def generate_response(self, user_query: str, retrieved_results: list, top_N: int = 20) -> dict:
-        """
-        Generate a response using the retrieved search results. 
-        Returns:
-            dict: Contains the generated suggestion and the quality evaluation.
-        """
-        DEFAULT_ANSWER = "RAG is not available. Check your credentials (.env file) or account limits."
+        return "\n".join(lines) if lines else "(no retrieved products)"
+
+    def generate_response(self, user_query: str, retrieved_results: list, top_N: int = 20) -> str:
+        """Generate a Top-3 recommendation based on retrieved products."""
         try:
-            client = Groq(
-                api_key=os.environ.get("GROQ_API_KEY"),
-            )
-            model_name = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
+            formatted_results = self._format_documents(retrieved_results, top_N)
 
-            # Format the retrieved results for the prompt
-            formatted_results = "\n".join(
-                [f"- PID: {res.pid}, Title: {res.title}" for res in retrieved_results[:top_N]]
-            )
-
-            prompt = self.PROMPT_TEMPLATE.format(
-                retrieved_results=formatted_results,
-                user_query=user_query
-            )
-
-            chat_completion = client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    }
-                ],
-                model=model_name,
+            prompt = (
+                "You are an expert product advisor. From the retrieved products below, pick the Top 3 products "
+                "best suited for the user's request. For each, provide a one-line explanation referencing price, "
+                "rating, discount, stock, or BM25 score.\n\n"
+                "Return your answer as numbered items (1., 2., 3.) formatted exactly like:\n"
+                "1. PID - Title - Why: <short justification>\n\n"
+                "Retrieved Products:\n"
+                f"{formatted_results}\n\n"
+                f"User Request: {user_query}\n\n"
+                "If none of the retrieved products fit, return exactly:\n"
+                "\"There are no good products that fit the request based on the retrieved results.\""
             )
 
-            generation = chat_completion.choices[0].message.content
-            return generation
+            completion = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            return completion.choices[0].message.content
+
         except Exception as e:
-            print(f"Error during RAG generation: {e}")
-            return DEFAULT_ANSWER
+            print(f"[RAG ERROR] {e}")
+            return self.DEFAULT_ANSWER

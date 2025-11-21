@@ -74,7 +74,7 @@ def search_form_post():
 
     search_id = analytics_data.save_query_terms(search_query)
 
-    results = search_engine.search(search_query, search_id, corpus)
+    results = search_engine.search(search_query, search_id, corpus, analytics_data=analytics_data)
 
     # generate RAG response based on user query and retrieved results
     rag_response = rag_generator.generate_response(search_query, results)
@@ -115,7 +115,10 @@ def doc_details():
 
     print("fact_clicks count for id={} is {}".format(clicked_doc_id, analytics_data.fact_clicks[clicked_doc_id]))
     print(analytics_data.fact_clicks)
-    return render_template('doc_details.html')
+    # fetch document and render details
+    doc = corpus.get(clicked_doc_id)
+    search_id = request.args.get('search_id')
+    return render_template('doc_details.html', doc=doc, page_title="Document details", search_id=search_id)
 
 
 @app.route('/stats', methods=['GET'])
