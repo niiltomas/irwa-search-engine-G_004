@@ -1,31 +1,133 @@
 {% extends "base.html" %}
-{% block page_title %}{{ page_title }}{% endblock %}
+{% block page_title %}Analytics Dashboard{% endblock %}
 
 {% block header %}
-    <!-- Next tag loads Charts.js https://www.chartjs.org/docs/latest/ -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.6.2/chart.min.js"
-            integrity="sha512-tMabqarPtykgDtdtSqCL3uLVM0gS1ZkUAVhRFu1vSEFgvB73niFQWJuvviDyBGBH22Lcau4rHB5p2K2T0Xvr6Q=="
-            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.6.2/chart.min.js"
+        integrity="sha512-tMabqarPtykgDtdtSqCL3uLVM0gS1ZkUAVhRFu1vSEFgvB73niFQWJuvviDyBGBH22Lcau4rHB5p2K2T0Xvr6Q=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 {% endblock %}
 
 {% block content %}
+<h2 class="mt-4 mb-4">Analytics Dashboard</h2>
 
-    <!--
-    Examples of what to show in Dashboard:
+<!-- 1) Número total de vistas (Altair via iframe) -->
+<div class="mb-5">
+    <h4>Number of Views per Document</h4>
+    <iframe src="/plot_number_of_views" width="650" height="420" style="border:none;"></iframe>
+</div>
 
-    - Ranking of visited documents (from results page)
-    - Visitor's preferred browsers
-    - Visitor's city (from IP)
-    - preferred queries ranking
-    - preferred terms
-    - etc.
+<hr>
 
-    -->
+<!-- 2) Clicks por documento (Chart.js) -->
+<div class="mb-5">
+    <h4>Clicks per Document (Top visited)</h4>
+    <canvas id="clicksChart" width="600" height="250"></canvas>
+</div>
 
-    <h3>Dashboard</h3>
-    <iframe src="/plot_number_of_views" width="600" height="400" style="border: none;"></iframe>
+<hr>
 
+<!-- 3) Longitud de queries -->
+<div class="mb-5">
+    <h4>Query Length Distribution</h4>
+    <canvas id="queryLengthChart" width="600" height="250"></canvas>
+</div>
+
+<hr>
+
+<!-- 4) Navegadores más usados -->
+<div class="mb-5">
+    <h4>Browser Usage</h4>
+    <canvas id="browserChart" width="600" height="250"></canvas>
+</div>
+
+<hr>
+
+<!-- 5) Ranking de documentos clicados -->
+<div class="mb-5">
+    <h4>Click Rank Positions (CTR by rank)</h4>
+    <canvas id="rankChart" width="600" height="250"></canvas>
+</div>
+
+
+<script>
+    // Los datos se pasan desde Flask usando JSON safe
+    const clicksData = {{ clicks_data | tojson }};
+    const queriesData = {{ queries_data | tojson }};
+    const requestsData = {{ requests_data | tojson }};
+    const clickEventsData = {{ click_events_data | tojson }};
+
+    // --------------- CLICK POR DOCUMENTO ---------------
+    const clicksLabels = clicksData.map(e => e.doc_id);
+    const clicksCounts = clicksData.map(e => e.count);
+
+    new Chart(
+        document.getElementById('clicksChart').getContext('2d'),
+        {
+            type: 'bar',
+            data: {
+                labels: clicksLabels,
+                datasets: [{
+                    label: 'Clicks',
+                    data: clicksCounts
+                }]
+            }
+        }
+    );
+
+    // --------------- LONGITUD DE QUERIES ---------------
+    const queryLengths = queriesData.map(q => q.n_terms);
+
+    new Chart(
+        document.getElementById('queryLengthChart').getContext('2d'),
+        {
+            type: 'bar',
+            data: {
+                labels: queryLengths.map((_, i) => "Q" + (i+1)),
+                datasets: [{
+                    label: 'Terms in query',
+                    data: queryLengths
+                }]
+            }
+        }
+    );
+
+    // --------------- NAVEGADORES ----------------
+    const browserCounts = {};
+    requestsData.forEach(r => {
+        const ua = r.user_agent;
+        if (!browserCounts[ua]) browserCounts[ua] = 0;
+        browserCounts[ua]++;
+    });
+
+    new Chart(
+        document.getElementById('browserChart').getContext('2d'),
+        {
+            type: 'pie',
+            data: {
+                labels: Object.keys(browserCounts),
+                datasets: [{
+                    data: Object.values(browserCounts)
+                }]
+            }
+        }
+    );
+
+    // --------------- RANK DE DOCUMENTOS CLICADOS ---------------
+    const ranks = clickEventsData.map(e => e.rank).filter(r => r !== null);
+
+    new Chart(
+        document.getElementById('rankChart').getContext('2d'),
+        {
+            type: 'bar',
+            data: {
+                labels: ranks.map((_, i) => "Click " + (i+1)),
+                datasets: [{
+                    label: 'Document rank',
+                    data: ranks
+                }]
+            }
+        }
+    );
+</script>
 
 {% endblock %}
-
-
